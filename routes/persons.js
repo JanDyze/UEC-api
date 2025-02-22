@@ -1,26 +1,14 @@
 const express = require("express");
 const {
-  addPerson,
   getPersons,
-  updatePerson,
+  addPerson,
   deletePerson,
-  getPersonById,
 } = require("../controllers/personController");
 
 const router = express.Router();
 
-// Route to get all persons
 router.get("/", getPersons);
-
-router.get("/:id", getPersonById);
-
-// Route to add a new person
-router.post("/add", addPerson);
-
-// Route to update a person by ID
-router.put("/:id", updatePerson);
-
-// Route to delete a person by ID
-router.delete("/:id", deletePerson);
+router.post("/", addPerson);
+router.delete("/:id", deletePerson); // ✅ Added DELETE route
 
 module.exports = router;

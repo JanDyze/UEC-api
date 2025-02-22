@@ -1,117 +1,148 @@
-const fs = require("fs");
-const path = require("path");
-
-const ATTENDANCE_FILE = path.join(__dirname, "../data/attendance.json");
-
-// Function to read attendance data
-const readAttendance = () => {
-  if (!fs.existsSync(ATTENDANCE_FILE)) return [];
-  const data = fs.readFileSync(ATTENDANCE_FILE);
-  return JSON.parse(data);
-};
-
-// Function to write attendance data
-const writeAttendance = (data) => {
-  fs.writeFileSync(ATTENDANCE_FILE, JSON.stringify(data, null, 2));
-};
+const Attendance = require("../models/attendance");
+const Person = require("../models/persons"); // Ensure this exists
 
 // Get all attendance records
-const getAllAttendance = (req, res) => {
+const getAttendanceRecords = async (req, res) => {
   try {
-    const attendance = readAttendance();
-    res.json(attendance);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error reading attendance", error: error.message });
-  }
-};
-
-// Get attendance records by service_id
-const getAttendanceByService = (req, res) => {
-  try {
-    const serviceId = parseInt(req.params.serviceId);
-    const attendance = readAttendance();
-    const filteredAttendance = attendance.filter(
-      (a) => a.service_id === serviceId
+    const records = await Attendance.find().populate(
+      "person_id",
+      "firstname lastname"
     );
-    res.json(filteredAttendance);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error filtering attendance", error: error.message });
-  }
-};
-
-// Create a new attendance record
-const createAttendance = (req, res) => {
-  try {
-    const { service_id, person_id, status } = req.body;
-    if (!service_id || !person_id || !status) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const attendance = readAttendance();
-    const newRecord = { id: Date.now(), service_id, person_id, status };
-    attendance.push(newRecord);
-    writeAttendance(attendance);
-
-    res.status(201).json(newRecord);
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error creating attendance", error: error.message });
-  }
-};
-
-// Update an existing attendance record (toggle status)
-const updateAttendance = (req, res) => {
-  try {
-    const { service_id, person_id, status } = req.body;
-    if (!service_id || !person_id || !status) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const attendance = readAttendance();
-    const index = attendance.findIndex(
-      (a) => a.service_id === service_id && a.person_id === person_id
-    );
-
-    if (index !== -1) {
-      attendance[index].status = status;
-      writeAttendance(attendance);
-      res.json(attendance[index]);
-    } else {
-      return res.status(404).json({ message: "Attendance record not found" });
-    }
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating attendance", error: error.message });
-  }
-};
-
-// Get the total count of persons marked as "Present"
-const getAllPresentByService = (req, res) => {
-  try {
-    const serviceId = parseInt(req.params.serviceId);
-    const attendance = readAttendance();
-    const presentCount = attendance.filter(
-      (a) => a.service_id === serviceId && a.status === "Present"
-    ).length;
-    res.json({ serviceId, presentCount });
-  } catch (error) {
-    res.status(500).json({
-      message: "Error counting present persons",
-      error: error.message,
+    res.status(200).json({
+      success: true,
+      message: "Attendance records retrieved successfully.",
+      data: records,
     });
+  } catch (error) {
+    console.error("Error fetching attendance records:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch attendance records." });
+  }
+};
+
+// Get attendance record by ID
+const getAttendanceById = async (req, res) => {
+  try {
+    const record = await Attendance.findById(req.params.id).populate(
+      "person_id",
+      "firstname lastname"
+    );
+    if (!record) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attendance record not found." });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Attendance record retrieved successfully.",
+      data: record,
+    });
+  } catch (error) {
+    console.error("Error fetching attendance record:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch attendance record." });
+  }
+};
+
+// Add new attendance record
+const addAttendance = async (req, res) => {
+  try {
+    const { date, person_id, status } = req.body;
+
+    if (!date || !person_id || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "Date, person_id, and status are required.",
+      });
+    }
+
+    // Ensure the person exists
+    const personExists = await Person.findById(person_id);
+    if (!personExists) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Person not found." });
+    }
+
+    const newAttendance = await Attendance.create({ date, person_id, status });
+
+    // Populate person_id field before sending response
+    const populatedAttendance = await newAttendance.populate(
+      "person_id",
+      "firstname lastname"
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Attendance record added successfully.",
+      data: populatedAttendance,
+    });
+  } catch (error) {
+    console.error("Error adding attendance record:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to add attendance record." });
+  }
+};
+
+// Update an attendance record
+const updateAttendance = async (req, res) => {
+  try {
+    const { date, status } = req.body;
+
+    const updatedRecord = await Attendance.findByIdAndUpdate(
+      req.params.id,
+      { date, status },
+      { new: true }
+    );
+
+    if (!updatedRecord) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attendance record not found." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Attendance record updated successfully.",
+      data: updatedRecord,
+    });
+  } catch (error) {
+    console.error("Error updating attendance record:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update attendance record." });
+  }
+};
+
+// Delete an attendance record
+const deleteAttendance = async (req, res) => {
+  try {
+    const deletedRecord = await Attendance.findByIdAndDelete(req.params.id);
+    if (!deletedRecord) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attendance record not found." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Attendance record deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Error deleting attendance record:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to delete attendance record." });
   }
 };
 
 module.exports = {
-  getAllAttendance,
-  getAttendanceByService,
-  createAttendance,
+  getAttendanceRecords,
+  getAttendanceById,
+  addAttendance,
   updateAttendance,
-  getAllPresentByService, // Added new function here
+  deleteAttendance,
 };

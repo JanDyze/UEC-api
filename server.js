@@ -1,77 +1,47 @@
-require("dotenv").config();
-const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
+const connectDB = require("./config/db");
+const personsRoutes = require("./routes/persons");
+const attendanceRoutes = require("./routes/attendance");
+
+require("dotenv").config();
 
 const app = express();
-app.use(cors());
+
+const allowedOrigins = [
+  "http://localhost:5173", // Local frontend
+  "https://uec-app.vercel.app", // Deployed frontend
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+connectDB();
+
+// Routes
+app.use("/persons", personsRoutes);
+app.use("/attendance", attendanceRoutes);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
-
-const db = mongoose.connection;
-db.once("open", () => {
-  console.log("Connected to MongoDB");
-  watchCollection(); // Start watching MongoDB changes
-});
-
-// Define Schema and Model
-const PersonSchema = new mongoose.Schema({
-  firstname: String,
-  lastname: String,
-});
-
-const Person = mongoose.model("Person", PersonSchema);
-
-// Store connected clients
-let clients = [];
-
-// SSE Route (Real-time updates)
-app.get("/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  clients.push(res);
-  req.on("close", () => {
-    clients = clients.filter((client) => client !== res);
-  });
-});
-
-// Function to notify clients
-const notifyClients = () => {
-  clients.forEach((client) => client.write(`data: update\n\n`));
-};
-
-// API to add a person
-app.post("/persons", async (req, res) => {
-  try {
-    const person = new Person(req.body);
-    await person.save();
-    res.json(person);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// API to get all persons
-app.get("/persons", async (req, res) => {
-  const persons = await Person.find();
-  res.json(persons);
-});
-
-// **Watch MongoDB Collection for Changes**
-const watchCollection = () => {
-  const changeStream = Person.watch();
-
-  changeStream.on("change", (change) => {
-    console.log("Change detected:", change);
-    notifyClients(); // Notify all clients when a change happens
-  });
-};
-
-module.exports = app;

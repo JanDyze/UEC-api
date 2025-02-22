@@ -1,27 +1,18 @@
 const express = require("express");
 const {
-  getAllAttendance,
-  getAttendanceByService,
-  createAttendance,
+  getAttendanceRecords,
+  getAttendanceById,
+  addAttendance,
   updateAttendance,
-  getAllPresentByService,
+  deleteAttendance,
 } = require("../controllers/attendanceController");
 
 const router = express.Router();
 
-// Get all attendance records
-router.get("/", getAllAttendance);
-
-// Get attendance records for a specific service
-router.get("/:serviceId", getAttendanceByService);
-
-// Get the count of all present persons
-router.get("/:serviceId/count/present", getAllPresentByService);
-
-// Create a new attendance record
-router.post("/", createAttendance);
-
-// Update an existing attendance record
-router.put("/", updateAttendance);
+router.get("/", getAttendanceRecords);
+router.get("/:id", getAttendanceById);
+router.post("/", addAttendance);
+router.put("/:id", updateAttendance);
+router.delete("/:id", deleteAttendance);
 
 module.exports = router;
