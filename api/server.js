@@ -13,39 +13,15 @@ mongoose.connect(process.env.MONGO_URI, {
   useUnifiedTopology: true,
 });
 
-const db = mongoose.connection;
-db.once("open", () => {
+mongoose.connection.once("open", () => {
   console.log("Connected to MongoDB");
-  watchCollection(); // Start watching MongoDB changes
-});
 
-// Define Schema and Model
-const PersonSchema = new mongoose.Schema({
-  firstname: String,
-  lastname: String,
-});
-
-const Person = mongoose.model("Person", PersonSchema);
-
-// Store connected clients
-let clients = [];
-
-//   Route (Real-time updates)
-app.get("/events", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  clients.push(res);
-  req.on("close", () => {
-    clients = clients.filter((client) => client !== res);
+  // Watch MongoDB for changes
+  const changeStream = mongoose.connection.collection("persons").watch();
+  changeStream.on("change", (change) => {
+    console.log("Change detected:", change);
   });
 });
-
-// Function to notify clients
-const notifyClients = () => {
-  clients.forEach((client) => client.write(`data: update\n\n`));
-};
 
 // API to add a person
 app.post("/persons", async (req, res) => {
@@ -58,20 +34,15 @@ app.post("/persons", async (req, res) => {
   }
 });
 
-// API to get all persons
+// API to get persons
 app.get("/persons", async (req, res) => {
-  const persons = await Person.find();
-  res.json(persons);
+  try {
+    const persons = await Person.find();
+    res.json(persons);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// **Watch MongoDB Collection for Changes**
-const watchCollection = () => {
-  const changeStream = Person.watch();
-
-  changeStream.on("change", (change) => {
-    console.log("Change detected:", change);
-    notifyClients(); // Notify all clients when a change happens
-  });
-};
-
+// Export for Vercel
 module.exports = app;
