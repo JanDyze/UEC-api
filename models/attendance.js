@@ -2,8 +2,9 @@ const mongoose = require("mongoose");
 
 const AttendanceSchema = new mongoose.Schema(
   {
-    date: {
-      type: Date,
+    service_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service",
       required: true,
     },
     person_id: {

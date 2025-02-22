@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Attendance = require("./attendance");
 
 const PersonSchema = new mongoose.Schema(
   {
@@ -14,5 +15,16 @@ const PersonSchema = new mongoose.Schema(
   },
   { timestamps: true } // Automatically adds `createdAt` and `updatedAt`
 );
+
+PersonSchema.pre("findOneAndDelete", async function (next) {
+  const person = await this.model.findOne(this.getQuery());
+
+  if (person) {
+    await Attendance.deleteMany({ person_id: person._id });
+    console.log(`Deleted attendance records for person ${person._id}`);
+  }
+
+  next();
+});
 
 module.exports = mongoose.model("Person", PersonSchema);

@@ -18,6 +18,33 @@ const getPersons = async (req, res) => {
   }
 };
 
+// ✅ Get a person by ID
+const getPersonById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const person = await Person.findById(id);
+
+    if (!person) {
+      return res.status(404).json({
+        success: false,
+        message: "Person not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Person retrieved successfully.",
+      data: person,
+    });
+  } catch (err) {
+    console.error("❌ Error fetching person:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch person.",
+    });
+  }
+};
+
 // Add a new person
 const addPerson = async (req, res) => {
   try {
@@ -73,4 +100,4 @@ const deletePerson = async (req, res) => {
   }
 };
 
-module.exports = { getPersons, addPerson, deletePerson };
+module.exports = { getPersons, getPersonById, addPerson, deletePerson };
