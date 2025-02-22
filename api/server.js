@@ -23,6 +23,13 @@ mongoose.connection.once("open", () => {
   });
 });
 
+// **Define Person Model** (Fixes the error)
+const PersonSchema = new mongoose.Schema({
+  firstname: String,
+  lastname: String,
+});
+const Person = mongoose.model("Person", PersonSchema);
+
 // API to add a person
 app.post("/persons", async (req, res) => {
   try {
